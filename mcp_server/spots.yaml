@@ -1,0 +1,615 @@
+# SoCal surf spot database.
+#
+# Coordinates and tide stations are approximate and meant for forecast
+# fetching, not navigation. ideal_swell_deg is the swell direction window
+# (degrees, meteorological "coming from") where the spot turns on.
+# beach_orientation_deg is the direction the beach faces seaward
+# (offshore wind blows from the opposite direction).
+#
+# tide_pref: low | mid_low | mid | mid_high | high | any
+# skill_floor: any | intermediate | advanced
+
+regions:
+  santa-barbara: Santa Barbara
+  ventura:      Ventura
+  la:           Los Angeles
+  oc:           Orange County
+  sd:           San Diego
+
+# NOAA tide stations used across the dataset:
+#   9411340  Santa Barbara
+#   9410840  Santa Monica
+#   9410660  Los Angeles
+#   9410230  La Jolla
+#   9410170  San Diego
+#   9412110  Port San Luis
+
+spots:
+
+  # --- Santa Barbara ---
+  - id: rincon
+    name: Rincon Point
+    region: santa-barbara
+    lat: 34.371
+    lon: -119.481
+    tide_station: "9411340"
+    ideal_swell_deg: [170, 230]
+    beach_orientation_deg: 190
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Legendary right point, lined-up walls when it's on"
+      - "Best on W/NW that wraps or pure S; light NE wind"
+      - "Crowded any time it breaks"
+
+  - id: hammonds
+    name: Hammonds Reef
+    region: santa-barbara
+    lat: 34.412
+    lon: -119.624
+    tide_station: "9411340"
+    ideal_swell_deg: [180, 230]
+    beach_orientation_deg: 200
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "Right reef, mellower than Rincon but picky"
+
+  - id: sandspit
+    name: Sandspit
+    region: santa-barbara
+    lat: 34.401
+    lon: -119.687
+    tide_station: "9411340"
+    ideal_swell_deg: [180, 230]
+    beach_orientation_deg: 200
+    tide_pref: low
+    skill_floor: advanced
+    notes:
+      - "Heavy, hollow harbor wave, advanced only"
+      - "Needs a solid S swell and high pressure"
+
+  - id: devereux
+    name: Devereux
+    region: santa-barbara
+    lat: 34.413
+    lon: -119.875
+    tide_station: "9411340"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 230
+    tide_pref: any
+    skill_floor: intermediate
+    notes:
+      - "Open reef west of campus, picks up NW swell"
+
+  - id: el-capitan
+    name: El Capitan
+    region: santa-barbara
+    lat: 34.461
+    lon: -120.024
+    tide_station: "9411340"
+    ideal_swell_deg: [220, 290]
+    beach_orientation_deg: 220
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Long right cobblestone point, fun walls when NW lines up"
+
+  - id: jalama
+    name: Jalama
+    region: santa-barbara
+    lat: 34.510
+    lon: -120.504
+    tide_station: "9412110"
+    ideal_swell_deg: [240, 320]
+    beach_orientation_deg: 240
+    tide_pref: any
+    skill_floor: intermediate
+    notes:
+      - "Exposed beach break, magnet for NW; usually windy in afternoon"
+
+  # --- Ventura ---
+  - id: solimar
+    name: Solimar
+    region: ventura
+    lat: 34.299
+    lon: -119.413
+    tide_station: "9411340"
+    ideal_swell_deg: [180, 240]
+    beach_orientation_deg: 200
+    tide_pref: mid
+    skill_floor: any
+    notes:
+      - "Mellow cobble reef/point, takes S and W swells"
+
+  - id: emma-wood
+    name: Emma Wood
+    region: ventura
+    lat: 34.286
+    lon: -119.328
+    tide_station: "9411340"
+    ideal_swell_deg: [180, 240]
+    beach_orientation_deg: 200
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Right pointbreak, cobble bottom"
+
+  - id: c-street
+    name: C Street (Surfers Point)
+    region: ventura
+    lat: 34.272
+    lon: -119.297
+    tide_station: "9411340"
+    ideal_swell_deg: [190, 280]
+    beach_orientation_deg: 210
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Long, forgiving cobble point — classic Ventura wave"
+      - "Multiple peaks, friendly for all levels"
+
+  - id: ventura-point
+    name: Ventura Point
+    region: ventura
+    lat: 34.275
+    lon: -119.300
+    tide_station: "9411340"
+    ideal_swell_deg: [190, 260]
+    beach_orientation_deg: 210
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "Inner section of C Street, faster and more crowded"
+
+  - id: mondos
+    name: Mondos
+    region: ventura
+    lat: 34.318
+    lon: -119.435
+    tide_station: "9411340"
+    ideal_swell_deg: [190, 250]
+    beach_orientation_deg: 210
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Beginner-friendly cobble point, gentle longboard wave"
+
+  - id: silverstrand
+    name: Silver Strand
+    region: ventura
+    lat: 34.157
+    lon: -119.224
+    tide_station: "9411340"
+    ideal_swell_deg: [190, 260]
+    beach_orientation_deg: 215
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Punchy beach break south of the harbor"
+
+  # --- Los Angeles ---
+  - id: leo-carrillo
+    name: Leo Carrillo
+    region: la
+    lat: 34.046
+    lon: -118.940
+    tide_station: "9410840"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 220
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Reef breaks on the north end, gets bigger than nearby spots"
+
+  - id: county-line
+    name: County Line
+    region: la
+    lat: 34.052
+    lon: -118.972
+    tide_station: "9410840"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 220
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Multiple peaks, longboard-friendly outside section"
+
+  - id: zuma
+    name: Zuma
+    region: la
+    lat: 34.014
+    lon: -118.821
+    tide_station: "9410840"
+    ideal_swell_deg: [210, 290]
+    beach_orientation_deg: 220
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Open exposure to NW, often the biggest in LA"
+      - "Goes closeout quickly above shoulder-high"
+
+  - id: malibu-first-point
+    name: Malibu — First Point
+    region: la
+    lat: 34.034
+    lon: -118.679
+    tide_station: "9410840"
+    ideal_swell_deg: [165, 200]
+    beach_orientation_deg: 195
+    tide_pref: mid
+    skill_floor: any
+    notes:
+      - "Classic right pointbreak — needs pure S swell"
+      - "Crowded beyond belief; locals enforced"
+
+  - id: malibu-second-point
+    name: Malibu — Second Point
+    region: la
+    lat: 34.034
+    lon: -118.680
+    tide_station: "9410840"
+    ideal_swell_deg: [170, 210]
+    beach_orientation_deg: 200
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "Wraps from First Point, more punch, fewer longboards"
+
+  - id: malibu-third-point
+    name: Malibu — Third Point
+    region: la
+    lat: 34.035
+    lon: -118.682
+    tide_station: "9410840"
+    ideal_swell_deg: [180, 220]
+    beach_orientation_deg: 200
+    tide_pref: mid_high
+    skill_floor: intermediate
+    notes:
+      - "Outer point — needs size, breaks on bigger S/SW"
+
+  - id: topanga
+    name: Topanga
+    region: la
+    lat: 34.040
+    lon: -118.580
+    tide_station: "9410840"
+    ideal_swell_deg: [200, 260]
+    beach_orientation_deg: 220
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "Right cobble point at PCH, picky and crowded"
+
+  - id: sunset-point
+    name: Sunset Point (PCH)
+    region: la
+    lat: 34.038
+    lon: -118.561
+    tide_station: "9410840"
+    ideal_swell_deg: [200, 260]
+    beach_orientation_deg: 220
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Reef break across from Sunset Blvd"
+
+  - id: venice-breakwater
+    name: Venice Breakwater
+    region: la
+    lat: 33.978
+    lon: -118.474
+    tide_station: "9410840"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 240
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Wedgy left and right off the jetty, urban beach break"
+
+  - id: el-porto
+    name: El Porto
+    region: la
+    lat: 33.901
+    lon: -118.421
+    tide_station: "9410660"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 250
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Consistent beach break, picks up almost anything"
+      - "Workhorse spot for the South Bay"
+
+  - id: manhattan-beach
+    name: Manhattan Beach
+    region: la
+    lat: 33.886
+    lon: -118.411
+    tide_station: "9410660"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 250
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Long beach break with shifting peaks, easy access"
+
+  - id: hermosa-pier
+    name: Hermosa Beach Pier
+    region: la
+    lat: 33.862
+    lon: -118.405
+    tide_station: "9410660"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 250
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Punchier wedges around the pier on south swells"
+
+  # --- Orange County ---
+  - id: bolsa-chica
+    name: Bolsa Chica
+    region: oc
+    lat: 33.679
+    lon: -118.045
+    tide_station: "9410660"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 230
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Mellow beach break, beginner-friendly outside"
+
+  - id: hb-cliffs
+    name: HB Cliffs (Goldenwest)
+    region: oc
+    lat: 33.661
+    lon: -118.020
+    tide_station: "9410660"
+    ideal_swell_deg: [200, 280]
+    beach_orientation_deg: 230
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Better banks than the pier on its day"
+
+  - id: hb-pier
+    name: Huntington Beach Pier
+    region: oc
+    lat: 33.654
+    lon: -118.005
+    tide_station: "9410660"
+    ideal_swell_deg: [190, 270]
+    beach_orientation_deg: 220
+    tide_pref: any
+    skill_floor: intermediate
+    notes:
+      - "Wedge on the south side, crowds always"
+      - "South swell magnet"
+
+  - id: newport-point
+    name: Newport Point (56th St)
+    region: oc
+    lat: 33.598
+    lon: -117.881
+    tide_station: "9410660"
+    ideal_swell_deg: [180, 230]
+    beach_orientation_deg: 220
+    tide_pref: mid_low
+    skill_floor: advanced
+    notes:
+      - "Heavy wedging peaks on solid S swells, advanced only"
+
+  - id: doheny
+    name: Doheny
+    region: oc
+    lat: 33.460
+    lon: -117.683
+    tide_station: "9410230"
+    ideal_swell_deg: [180, 220]
+    beach_orientation_deg: 210
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Soft longboard wave, classic learn-to-surf spot"
+
+  - id: salt-creek
+    name: Salt Creek
+    region: oc
+    lat: 33.481
+    lon: -117.722
+    tide_station: "9410230"
+    ideal_swell_deg: [195, 250]
+    beach_orientation_deg: 215
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "Multiple peaks: The Point, Middles, Gravels"
+
+  - id: t-street
+    name: T-Street
+    region: oc
+    lat: 33.413
+    lon: -117.622
+    tide_station: "9410230"
+    ideal_swell_deg: [190, 230]
+    beach_orientation_deg: 210
+    tide_pref: mid
+    skill_floor: any
+    notes:
+      - "Friendly San Clemente peak, fun on small-to-mid S swells"
+
+  - id: san-clemente-pier
+    name: San Clemente Pier
+    region: oc
+    lat: 33.418
+    lon: -117.624
+    tide_station: "9410230"
+    ideal_swell_deg: [190, 240]
+    beach_orientation_deg: 210
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Beach break peaks on either side of the pier"
+
+  - id: lower-trestles
+    name: Lower Trestles
+    region: oc
+    lat: 33.382
+    lon: -117.591
+    tide_station: "9410230"
+    ideal_swell_deg: [190, 230]
+    beach_orientation_deg: 215
+    tide_pref: mid
+    skill_floor: intermediate
+    notes:
+      - "World-class cobble point — performance wave"
+      - "Best on SW groundswell, light morning offshore"
+      - "20-min walk from parking"
+
+  - id: upper-trestles
+    name: Upper Trestles
+    region: oc
+    lat: 33.386
+    lon: -117.595
+    tide_station: "9410230"
+    ideal_swell_deg: [190, 230]
+    beach_orientation_deg: 215
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Faster, hollower than Lowers; rights and lefts"
+
+  - id: san-onofre
+    name: San Onofre (Old Mans)
+    region: oc
+    lat: 33.371
+    lon: -117.566
+    tide_station: "9410230"
+    ideal_swell_deg: [190, 240]
+    beach_orientation_deg: 215
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Mellow cobble peaks, very longboard-friendly"
+
+  # --- San Diego ---
+  - id: oceanside-pier
+    name: Oceanside Pier
+    region: sd
+    lat: 33.193
+    lon: -117.385
+    tide_station: "9410170"
+    ideal_swell_deg: [190, 270]
+    beach_orientation_deg: 240
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Wedges either side of the pier"
+
+  - id: cardiff-reef
+    name: Cardiff Reef
+    region: sd
+    lat: 33.020
+    lon: -117.281
+    tide_station: "9410170"
+    ideal_swell_deg: [200, 290]
+    beach_orientation_deg: 240
+    tide_pref: mid_low
+    skill_floor: any
+    notes:
+      - "Mellow reef, longboard staple"
+
+  - id: swamis
+    name: Swamis
+    region: sd
+    lat: 33.034
+    lon: -117.292
+    tide_station: "9410170"
+    ideal_swell_deg: [260, 310]
+    beach_orientation_deg: 240
+    tide_pref: mid_high
+    skill_floor: intermediate
+    notes:
+      - "Long right reef, NW magnet, comes alive on winter swells"
+
+  - id: pipes
+    name: Pipes (Cardiff)
+    region: sd
+    lat: 33.060
+    lon: -117.298
+    tide_station: "9410170"
+    ideal_swell_deg: [240, 290]
+    beach_orientation_deg: 240
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Reef peaks north of Swamis"
+
+  - id: blacks
+    name: Black's Beach
+    region: sd
+    lat: 32.879
+    lon: -117.252
+    tide_station: "9410230"
+    ideal_swell_deg: [230, 290]
+    beach_orientation_deg: 250
+    tide_pref: mid_low
+    skill_floor: advanced
+    notes:
+      - "Canyon-amplified peaks, often double overhead in winter"
+      - "Long walk down, no easy bail; advanced only"
+
+  - id: la-jolla-shores
+    name: La Jolla Shores
+    region: sd
+    lat: 32.857
+    lon: -117.256
+    tide_station: "9410230"
+    ideal_swell_deg: [220, 290]
+    beach_orientation_deg: 250
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Sheltered beach break, friendly for beginners"
+
+  - id: windansea
+    name: Windansea
+    region: sd
+    lat: 32.834
+    lon: -117.281
+    tide_station: "9410230"
+    ideal_swell_deg: [230, 290]
+    beach_orientation_deg: 260
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Reef break with heavy locals"
+
+  - id: sunset-cliffs
+    name: Sunset Cliffs
+    region: sd
+    lat: 32.728
+    lon: -117.255
+    tide_station: "9410170"
+    ideal_swell_deg: [220, 290]
+    beach_orientation_deg: 250
+    tide_pref: mid_low
+    skill_floor: intermediate
+    notes:
+      - "Series of reef breaks below the cliffs, NW swell magnet"
+
+  - id: ocean-beach-pier
+    name: Ocean Beach Pier
+    region: sd
+    lat: 32.748
+    lon: -117.253
+    tide_station: "9410170"
+    ideal_swell_deg: [220, 290]
+    beach_orientation_deg: 250
+    tide_pref: any
+    skill_floor: any
+    notes:
+      - "Punchy beach break, OB peaks"
