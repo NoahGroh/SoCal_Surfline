@@ -1,10 +1,8 @@
 """Objective surf rating + best-window logic.
 
-The rating combines four factors — size, period, swell direction match,
-and wind quality — into a 0-100 score and a POOR/FAIR/GOOD/EPIC label.
-The "personalization" pieces (skill level, board, "only ping when good")
-live in the Poke recipe prompt, not here. This module produces objective
-data the recipe can then frame however it wants.
+The rating combines five factors — size, period, swell direction, wind, and
+tide — into a 0-100 score and a POOR/FAIR/GOOD/EPIC label. Personalization
+(skill, board, "only ping when good") lives in the Poke recipe, not here.
 """
 from __future__ import annotations
 
@@ -12,7 +10,20 @@ from datetime import datetime
 import math
 
 
-# ---------- helpers ----------
+# Open-Meteo returns significant wave height in deep water; surfers think
+# in face height, which runs ~1.5x larger after shoaling.
+FACE_FACTOR = 1.5
+
+# Geometric-mean weights for the overall rating. A near-zero factor tanks
+# the score, which is what we want (junked wind ruins a good swell, etc.).
+WEIGHTS = {"size": 0.25, "period": 0.20, "direction": 0.20, "wind": 0.25, "tide": 0.10}
+
+# Floor inside log() so score 0 doesn't blow up to -inf, but stays low
+# enough that "junked" wind (~0.05) still drives the rating down hard.
+SCORE_FLOOR = 0.001
+
+
+# ---------- math helpers ----------
 
 CARDINALS = [
     (0, "N"), (22.5, "NNE"), (45, "NE"), (67.5, "ENE"),
@@ -31,7 +42,6 @@ def to_cardinal(deg: float | None) -> str | None:
 
 
 def _angle_diff(a: float, b: float) -> float:
-    """Smallest unsigned angle between two compass bearings."""
     d = abs((a - b) % 360)
     return min(d, 360 - d)
 
@@ -40,7 +50,6 @@ def _in_window(deg: float, window: tuple[float, float]) -> bool:
     lo, hi = window
     if lo <= hi:
         return lo <= deg <= hi
-    # wraps around 360
     return deg >= lo or deg <= hi
 
 
@@ -59,61 +68,49 @@ def _circular_mean(degs: list[float]) -> float:
     return math.degrees(math.atan2(ys, xs)) % 360
 
 
-def _mean(xs: list[float | None]) -> float:
+def _mean(xs: list[float | None], default: float | None = 0.0) -> float | None:
     vals = [x for x in xs if x is not None]
-    return sum(vals) / len(vals) if vals else 0.0
+    return sum(vals) / len(vals) if vals else default
+
+
+def _hour_of(iso_time: str) -> int | None:
+    try:
+        return datetime.fromisoformat(iso_time).hour
+    except (ValueError, TypeError):
+        return None
 
 
 # ---------- factor scoring ----------
 
 def score_size(face_height_ft: float) -> tuple[float, str]:
-    """Objective size score, peaks around chest-to-overhead."""
-    if face_height_ft < 0.5:
-        return 0.05, "flat"
-    if face_height_ft < 1.5:
-        return 0.25, "ankle-knee"
-    if face_height_ft < 2.5:
-        return 0.55, "knee-waist"
-    if face_height_ft < 3.5:
-        return 0.85, "waist-chest"
-    if face_height_ft < 5.0:
-        return 1.0, "chest-head"
-    if face_height_ft < 7.0:
-        return 0.9, "overhead"
-    if face_height_ft < 10.0:
-        return 0.7, "well overhead"
+    if face_height_ft < 0.5:  return 0.05, "flat"
+    if face_height_ft < 1.5:  return 0.25, "ankle-knee"
+    if face_height_ft < 2.5:  return 0.55, "knee-waist"
+    if face_height_ft < 3.5:  return 0.85, "waist-chest"
+    if face_height_ft < 5.0:  return 1.0,  "chest-head"
+    if face_height_ft < 7.0:  return 0.9,  "overhead"
+    if face_height_ft < 10.0: return 0.7,  "well overhead"
     return 0.4, "huge / closeout risk"
 
 
 def score_period(period_s: float) -> tuple[float, str]:
-    if period_s < 7:
-        return 0.2, "windswell / mushy"
-    if period_s < 10:
-        return 0.5, "mid period"
-    if period_s < 13:
-        return 0.8, "clean groundswell"
+    if period_s < 7:  return 0.2, "windswell / mushy"
+    if period_s < 10: return 0.5, "mid period"
+    if period_s < 13: return 0.8, "clean groundswell"
     return 1.0, "long-period groundswell"
 
 
 def score_direction(swell_dir_deg: float, ideal_window: tuple[float, float]) -> tuple[float, str]:
     miss = _distance_outside_window(swell_dir_deg, ideal_window)
-    if miss == 0:
-        return 1.0, "lined up for the spot"
-    if miss < 15:
-        return 0.7, "just outside ideal window"
-    if miss < 30:
-        return 0.45, "off-angle, partial energy"
-    if miss < 60:
-        return 0.2, "wrong direction"
+    if miss == 0:  return 1.0,  "lined up for the spot"
+    if miss < 15:  return 0.7,  "just outside ideal window"
+    if miss < 30:  return 0.45, "off-angle, partial energy"
+    if miss < 60:  return 0.2,  "wrong direction"
     return 0.05, "blocked direction"
 
 
 def score_wind(wind_speed_kt: float, wind_dir_deg: float, beach_orientation_deg: float) -> tuple[float, str]:
-    """Wind quality given the spot orientation.
-
-    Offshore = wind blowing from land out to sea (opposite of beach orientation).
-    Onshore  = wind blowing from sea to land   (matching beach orientation).
-    """
+    """Offshore = wind from land out to sea. Onshore = sea to land."""
     diff_from_offshore = _angle_diff(wind_dir_deg, (beach_orientation_deg + 180) % 360)
     diff_from_onshore = _angle_diff(wind_dir_deg, beach_orientation_deg)
 
@@ -121,78 +118,49 @@ def score_wind(wind_speed_kt: float, wind_dir_deg: float, beach_orientation_deg:
         return 0.95, "glassy"
 
     if diff_from_offshore < 45:
-        # offshore
-        if wind_speed_kt < 10:
-            return 1.0, "light offshore"
-        if wind_speed_kt < 18:
-            return 0.85, "moderate offshore"
+        if wind_speed_kt < 10: return 1.0,  "light offshore"
+        if wind_speed_kt < 18: return 0.85, "moderate offshore"
         return 0.55, "strong offshore (spitty)"
 
     if diff_from_onshore < 45:
-        # onshore
-        if wind_speed_kt < 6:
-            return 0.5, "light onshore"
-        if wind_speed_kt < 12:
-            return 0.2, "onshore, blown out"
+        if wind_speed_kt < 6:  return 0.5,  "light onshore"
+        if wind_speed_kt < 12: return 0.2,  "onshore, blown out"
         return 0.05, "junked"
 
-    # crossshore
-    if wind_speed_kt < 6:
-        return 0.7, "light cross"
-    if wind_speed_kt < 12:
-        return 0.4, "cross / textured"
+    if wind_speed_kt < 6:  return 0.7,  "light cross"
+    if wind_speed_kt < 12: return 0.4,  "cross / textured"
     return 0.15, "strong cross"
 
 
-def score_tide(tide_events: list[dict], tide_pref: str, at_hour: int) -> tuple[float, str]:
-    """Approximate tide-quality scoring relative to the spot's preference.
-
-    Uses high/low events on the day; estimates whether the morning falls
-    in the preferred window. Coarse but useful as a tiebreaker.
-    """
+def score_tide(tide_events: list[dict], tide_pref: str, at_hour: float) -> tuple[float, str]:
     if tide_pref == "any" or not tide_events:
         return 0.8, "tide n/a"
 
-    # find nearest two events bracketing at_hour
-    parsed = []
+    events = []
     for e in tide_events:
         try:
             t = datetime.fromisoformat(e["time"].replace(" ", "T"))
-            parsed.append((t.hour + t.minute / 60.0, e["type"], e["height_ft"]))
-        except Exception:
+            events.append((t.hour + t.minute / 60.0, e["height_ft"]))
+        except (ValueError, KeyError):
             continue
-
-    if not parsed:
+    if not events:
         return 0.7, "tide unknown"
 
-    # phase: rising or falling around at_hour
-    parsed.sort()
-    prev = None
-    nxt = None
-    for entry in parsed:
-        if entry[0] <= at_hour:
-            prev = entry
-        elif nxt is None:
-            nxt = entry
+    events.sort()
+    prev = next((p for p in reversed(events) if p[0] <= at_hour), None)
+    nxt  = next((p for p in events if p[0] > at_hour), None)
 
     if prev and nxt:
-        rising = nxt[2] > prev[2]
-        # fraction of the way between events
         span = nxt[0] - prev[0]
         frac = (at_hour - prev[0]) / span if span > 0 else 0.5
-        height = prev[2] + frac * (nxt[2] - prev[2])
-    elif prev:
-        rising = False
-        height = prev[2]
-    elif nxt:
-        rising = True
-        height = nxt[2]
+        height = prev[1] + frac * (nxt[1] - prev[1])
+        rising = nxt[1] > prev[1]
     else:
-        return 0.7, "tide unknown"
+        anchor = prev or nxt
+        height = anchor[1]
+        rising = nxt is not None
 
     phase = "rising" if rising else "falling"
-
-    # crude windows by preference
     pref_match = {
         "low":      height < 1.5,
         "mid_low":  0.5 <= height <= 3.0,
@@ -209,149 +177,184 @@ def score_tide(tide_events: list[dict], tide_pref: str, at_hour: int) -> tuple[f
 # ---------- aggregation ----------
 
 def _label_for_score(score: float) -> str:
-    if score < 0.25:
-        return "POOR"
-    if score < 0.50:
-        return "FAIR"
-    if score < 0.75:
-        return "GOOD"
+    if score < 0.25: return "POOR"
+    if score < 0.50: return "FAIR"
+    if score < 0.75: return "GOOD"
     return "EPIC"
-
-
-def _morning_indices(times: list[str], start_hour: int = 5, end_hour: int = 11) -> list[int]:
-    out = []
-    for i, t in enumerate(times):
-        try:
-            hr = datetime.fromisoformat(t).hour
-        except Exception:
-            continue
-        if start_hour <= hr <= end_hour:
-            out.append(i)
-    return out
-
-
-def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]) -> dict:
-    """Compute the structured snapshot the recipe will format into prose."""
-    hourly = marine.get("hourly", {})
-    wind_h = wind.get("hourly", {})
-    times = hourly.get("time", [])
-    morning = _morning_indices(times)
-
-    wave_h = [hourly["wave_height"][i] for i in morning]
-    swell_p = [hourly["swell_wave_period"][i] for i in morning]
-    swell_d = [hourly["swell_wave_direction"][i] for i in morning]
-    sst = [hourly["sea_surface_temperature"][i] for i in morning]
-    wind_s = [wind_h["wind_speed_10m"][i] for i in morning]
-    wind_d = [wind_h["wind_direction_10m"][i] for i in morning]
-    air_t = [wind_h["temperature_2m"][i] for i in morning]
-
-    face_height = _mean(wave_h)
-    period = _mean(swell_p)
-    dir_deg = _circular_mean([d for d in swell_d if d is not None])
-    wind_speed = _mean(wind_s)
-    wind_deg = _circular_mean([d for d in wind_d if d is not None])
-    water_temp_c = _mean(sst)
-    water_temp_f = water_temp_c * 9 / 5 + 32 if water_temp_c else None
-    air_temp_f = _mean(air_t)
-
-    size_s, size_label = score_size(face_height)
-    per_s, per_label = score_period(period)
-    dir_s, dir_label = score_direction(dir_deg, tuple(spot["ideal_swell_deg"]))
-    wind_s_score, wind_label = score_wind(wind_speed, wind_deg, spot["beach_orientation_deg"])
-    tide_s, tide_label = score_tide(tides, spot["tide_pref"], at_hour=7)
-
-    # weighted geometric mean — any factor being terrible drags the rating down
-    weights = {"size": 0.25, "period": 0.20, "direction": 0.20, "wind": 0.25, "tide": 0.10}
-    factors = {
-        "size": size_s,
-        "period": per_s,
-        "direction": dir_s,
-        "wind": wind_s_score,
-        "tide": tide_s,
-    }
-    # geometric mean with weights
-    log_sum = sum(weights[k] * math.log(max(v, 0.01)) for k, v in factors.items())
-    overall = math.exp(log_sum)
-    label = _label_for_score(overall)
-
-    return {
-        "rating": {
-            "overall": label,
-            "score_0_100": int(round(overall * 100)),
-            "factors": {
-                "size":      {"score": round(size_s, 2),      "label": size_label},
-                "period":    {"score": round(per_s, 2),       "label": per_label},
-                "direction": {"score": round(dir_s, 2),       "label": dir_label},
-                "wind":      {"score": round(wind_s_score, 2),"label": wind_label},
-                "tide":      {"score": round(tide_s, 2),      "label": tide_label},
-            },
-        },
-        "snapshot": {
-            "face_height_ft": round(face_height, 1),
-            "face_height_label": size_label,
-            "swell_period_s": round(period, 1),
-            "swell_direction_deg": round(dir_deg),
-            "swell_direction_cardinal": to_cardinal(dir_deg),
-            "wind_speed_kt": round(wind_speed, 1),
-            "wind_direction_deg": round(wind_deg),
-            "wind_direction_cardinal": to_cardinal(wind_deg),
-            "wind_character": wind_label,
-            "water_temp_f": round(water_temp_f, 1) if water_temp_f else None,
-            "air_temp_f": round(air_temp_f, 1) if air_temp_f else None,
-            "wetsuit": _wetsuit_for(water_temp_f),
-        },
-    }
 
 
 def _wetsuit_for(water_temp_f: float | None) -> str | None:
     if water_temp_f is None:
         return None
-    if water_temp_f < 58:
-        return "4/3 + booties"
-    if water_temp_f < 62:
-        return "4/3"
-    if water_temp_f < 66:
-        return "3/2"
-    if water_temp_f < 70:
-        return "springsuit or 2mm top"
+    if water_temp_f < 58: return "4/3 + booties"
+    if water_temp_f < 62: return "4/3"
+    if water_temp_f < 66: return "3/2"
+    if water_temp_f < 70: return "springsuit or 2mm top"
     return "trunks"
 
 
-def find_best_window(marine: dict, wind: dict, spot: dict) -> dict | None:
-    """Scan hourly data from sunrise-ish to noon, return the hour with the best score."""
+# Session windows. Times are 24h PT. "sunrise"/"sunset" are placeholders
+# resolved from the daily sun data; numeric values are fixed hour-of-day.
+SESSIONS = {
+    "dawn":   ("sunrise", 11),
+    "midday": (11,        15),
+    "sunset": (15,        "sunset"),
+}
+
+
+def _round_hour_for_sunrise(sunrise: str | None, default: int = 6) -> int:
+    """First hour that's mostly daylight (30-min rule)."""
+    if not sunrise:
+        return default
+    try:
+        t = datetime.fromisoformat(sunrise)
+        return t.hour + (1 if t.minute >= 30 else 0)
+    except (ValueError, TypeError):
+        return default
+
+
+def _round_hour_for_sunset(sunset: str | None, default: int = 19) -> int:
+    """Last hour that's mostly daylight (30-min rule)."""
+    if not sunset:
+        return default
+    try:
+        t = datetime.fromisoformat(sunset)
+        return t.hour - (1 if t.minute < 30 else 0)
+    except (ValueError, TypeError):
+        return default
+
+
+def _window_range(session: str, sunrise: str | None, sunset: str | None) -> tuple[int, int]:
+    """Resolve a session label to (start_hour, end_hour) for the day."""
+    if session not in SESSIONS:
+        session = "dawn"
+    start, end = SESSIONS[session]
+    if start == "sunrise":
+        start = _round_hour_for_sunrise(sunrise)
+    if end == "sunset":
+        end = _round_hour_for_sunset(sunset)
+    return start, end
+
+
+def _score_hour(spot: dict, wave_ft: float, period_s: float,
+                swell_deg: float, wind_kt: float, wind_deg: float) -> dict:
+    """Score the four per-hour factors (tide is added separately per day)."""
+    size_s, size_l = score_size(wave_ft * FACE_FACTOR)
+    per_s,  per_l  = score_period(period_s)
+    dir_s,  dir_l  = score_direction(swell_deg, tuple(spot["ideal_swell_deg"]))
+    wind_s, wind_l = score_wind(wind_kt, wind_deg, spot["beach_orientation_deg"])
+    return {
+        "size":      {"score": size_s, "label": size_l},
+        "period":    {"score": per_s,  "label": per_l},
+        "direction": {"score": dir_s,  "label": dir_l},
+        "wind":      {"score": wind_s, "label": wind_l},
+    }
+
+
+def _combine(factors: dict) -> float:
+    """Weighted geometric mean over WEIGHTS. Renormalizes when only a subset is supplied."""
+    items = [(k, v["score"]) for k, v in factors.items() if k in WEIGHTS]
+    w_total = sum(WEIGHTS[k] for k, _ in items)
+    if w_total <= 0:
+        return 0.0
+    log_sum = sum(WEIGHTS[k] * math.log(max(s, SCORE_FLOOR)) for k, s in items)
+    return math.exp(log_sum / w_total)
+
+
+def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict],
+                         sunrise: str | None = None, sunset: str | None = None,
+                         session: str = "dawn") -> dict:
+    """Compute the structured snapshot for the chosen session window."""
     hourly = marine.get("hourly", {})
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
+    start_hr, end_hr = _window_range(session, sunrise, sunset)
+
+    in_window = []
+    for i, t in enumerate(times):
+        h = _hour_of(t)
+        if h is not None and start_hr <= h <= end_hr:
+            in_window.append(i)
+
+    wave_ft   = _mean([hourly["wave_height"][i] for i in in_window])
+    period    = _mean([hourly["swell_wave_period"][i] for i in in_window])
+    swell_deg = _circular_mean([hourly["swell_wave_direction"][i] for i in in_window
+                                if hourly["swell_wave_direction"][i] is not None])
+    wind_kt   = _mean([wind_h["wind_speed_10m"][i] for i in in_window])
+    wind_deg  = _circular_mean([wind_h["wind_direction_10m"][i] for i in in_window
+                                if wind_h["wind_direction_10m"][i] is not None])
+    water_temp_c = _mean([hourly["sea_surface_temperature"][i] for i in in_window], default=None)
+    air_temp_f   = _mean([wind_h["temperature_2m"][i] for i in in_window], default=None)
+    water_temp_f = water_temp_c * 9 / 5 + 32 if water_temp_c is not None else None
+
+    factors = _score_hour(spot, wave_ft, period, swell_deg, wind_kt, wind_deg)
+    mid_hour = (start_hr + end_hr) / 2
+    tide_s, tide_l = score_tide(tides, spot["tide_pref"], at_hour=mid_hour)
+    factors["tide"] = {"score": tide_s, "label": tide_l}
+
+    overall = _combine(factors)
+    face_height_ft = wave_ft * FACE_FACTOR
+
+    return {
+        "session": session,
+        "session_window": {"start_hour": start_hr, "end_hour": end_hr},
+        "rating": {
+            "overall": _label_for_score(overall),
+            "score_0_100": int(round(overall * 100)),
+            "factors": {k: {"score": round(v["score"], 2), "label": v["label"]}
+                        for k, v in factors.items()},
+        },
+        "snapshot": {
+            "face_height_ft": round(face_height_ft, 1),
+            "face_height_label": factors["size"]["label"],
+            "swell_period_s": round(period, 1),
+            "swell_direction_deg": round(swell_deg),
+            "swell_direction_cardinal": to_cardinal(swell_deg),
+            "wind_speed_kt": round(wind_kt, 1),
+            "wind_direction_deg": round(wind_deg),
+            "wind_direction_cardinal": to_cardinal(wind_deg),
+            "wind_character": factors["wind"]["label"],
+            "water_temp_f": round(water_temp_f, 1) if water_temp_f is not None else None,
+            "air_temp_f": round(air_temp_f, 1) if air_temp_f is not None else None,
+            "wetsuit": _wetsuit_for(water_temp_f),
+        },
+    }
+
+
+def find_best_window(marine: dict, wind: dict, spot: dict,
+                     sunrise: str | None = None, sunset: str | None = None,
+                     session: str = "dawn") -> dict | None:
+    """Scan each hour in the session window, return the hour with the best score."""
+    hourly = marine.get("hourly", {})
+    wind_h = wind.get("hourly", {})
+    times = hourly.get("time", [])
+    start_hr, end_hr = _window_range(session, sunrise, sunset)
 
     best = None
     for i, t in enumerate(times):
-        try:
-            hr = datetime.fromisoformat(t).hour
-        except Exception:
-            continue
-        if not (5 <= hr <= 12):
+        hr = _hour_of(t)
+        if hr is None or not (start_hr <= hr <= end_hr):
             continue
 
-        wave = hourly["wave_height"][i] or 0
-        period = hourly["swell_wave_period"][i] or 0
-        sdir = hourly["swell_wave_direction"][i] or 0
-        wspd = wind_h["wind_speed_10m"][i] or 0
-        wdir = wind_h["wind_direction_10m"][i] or 0
-
-        size_s, _ = score_size(wave)
-        per_s, _ = score_period(period)
-        dir_s, _ = score_direction(sdir, tuple(spot["ideal_swell_deg"]))
-        win_s, win_label = score_wind(wspd, wdir, spot["beach_orientation_deg"])
-
-        score = (size_s ** 0.25) * (per_s ** 0.20) * (dir_s ** 0.25) * (win_s ** 0.30)
+        wave_ft = hourly["wave_height"][i] or 0
+        wind_kt = wind_h["wind_speed_10m"][i] or 0
+        factors = _score_hour(
+            spot,
+            wave_ft,
+            hourly["swell_wave_period"][i] or 0,
+            hourly["swell_wave_direction"][i] or 0,
+            wind_kt,
+            wind_h["wind_direction_10m"][i] or 0,
+        )
+        score = _combine(factors)
 
         if best is None or score > best["score"]:
             best = {
                 "time": t,
                 "hour": hr,
                 "score": score,
-                "wind_label": win_label,
-                "wind_kt": round(wspd, 1),
-                "face_height_ft": round(wave, 1),
+                "wind_label": factors["wind"]["label"],
+                "wind_kt": round(wind_kt, 1),
+                "face_height_ft": round(wave_ft * FACE_FACTOR, 1),
             }
     return best

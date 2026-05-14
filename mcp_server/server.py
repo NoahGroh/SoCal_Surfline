@@ -18,8 +18,8 @@ from typing import Optional
 
 from fastmcp import FastMCP
 
-from forecast import fetch_marine, fetch_wind, fetch_tides, fetch_sun, _resolve_date
-from rating import summarize_conditions, find_best_window
+from forecast import fetch_marine, fetch_wind, fetch_tides, fetch_sun, _resolve_date, current_session_pt
+from rating import summarize_conditions, find_best_window, SESSIONS
 from spots import all_regions, all_spots, get_spot, spots_in_region
 
 mcp = FastMCP("SoCal Surf Report")
@@ -61,18 +61,31 @@ def list_spots(region: Optional[str] = None) -> dict:
 
 @mcp.tool(
     description=(
-        "Fetch today's SoCal surf report for a single spot. Returns objective "
-        "data — wave size, swell period/direction, wind, tide events, water "
-        "temperature, wetsuit recommendation, an objective POOR/FAIR/GOOD/EPIC "
-        "rating, and the best window in the morning. Use spot_id from "
-        "list_spots(). Optional date in YYYY-MM-DD (defaults to today in PT)."
+        "Fetch a SoCal surf report for a single spot. Returns objective data — "
+        "wave size, swell period/direction, wind, tide events, water temperature, "
+        "wetsuit recommendation, a POOR/FAIR/GOOD/EPIC rating, and the best hour "
+        "inside the chosen session. "
+        "Use spot_id from list_spots(). "
+        "Optional date in YYYY-MM-DD (defaults to today in PT). "
+        "Optional session: 'dawn' (sunrise–11am, default), 'midday' (11am–3pm), "
+        "'sunset' (3pm–sunset), or 'now' (auto-detect from current PT time). "
+        "For the daily dawn-patrol report use the default. For ad-hoc queries "
+        "('how is it now', 'evening session?') pick the matching session."
     )
 )
-async def get_surf_report(spot_id: str, date: Optional[str] = None) -> dict:
+async def get_surf_report(spot_id: str, date: Optional[str] = None,
+                          session: str = "dawn") -> dict:
     spot = get_spot(spot_id)
     if not spot:
         return {
             "error": f"Unknown spot_id '{spot_id}'. Call list_spots() to see valid ids.",
+        }
+
+    if session == "now":
+        session = current_session_pt()
+    if session not in SESSIONS:
+        return {
+            "error": f"Unknown session '{session}'. Valid: {list(SESSIONS.keys()) + ['now']}",
         }
 
     target_date = _resolve_date(date)
@@ -84,8 +97,9 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None) -> dict:
         fetch_sun(spot["lat"], spot["lon"], target_date),
     )
 
-    summary = summarize_conditions(spot, marine, wind, tides)
-    best_window = find_best_window(marine, wind, spot)
+    sunrise, sunset = sun.get("sunrise"), sun.get("sunset")
+    summary = summarize_conditions(spot, marine, wind, tides, sunrise, sunset, session)
+    best_window = find_best_window(marine, wind, spot, sunrise, sunset, session)
 
     return {
         "spot": {
@@ -96,6 +110,8 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None) -> dict:
             "notes": spot["notes"],
         },
         "date": target_date.isoformat(),
+        "session": summary["session"],
+        "session_window": summary["session_window"],
         "sun": sun,
         "conditions": summary["snapshot"],
         "rating": summary["rating"],

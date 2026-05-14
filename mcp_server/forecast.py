@@ -22,6 +22,14 @@ def _resolve_date(date_str: str | None) -> date_cls:
     return datetime.now(TZ).date()
 
 
+def current_session_pt() -> str:
+    """Map current PT time to a named session: dawn / midday / sunset."""
+    hr = datetime.now(TZ).hour
+    if hr < 11: return "dawn"
+    if hr < 15: return "midday"
+    return "sunset"
+
+
 async def fetch_marine(lat: float, lon: float, target_date: date_cls) -> dict:
     """Hourly wave + sea-surface-temp data for the target date in PT."""
     params = {
