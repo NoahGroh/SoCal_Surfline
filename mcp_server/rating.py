@@ -193,47 +193,27 @@ def _wetsuit_for(water_temp_f: float | None) -> str | None:
     return "trunks"
 
 
-# Session windows. Times are 24h PT. "sunrise"/"sunset" are placeholders
-# resolved from the daily sun data; numeric values are fixed hour-of-day.
-SESSIONS = {
-    "dawn":   ("sunrise", 11),
-    "midday": (11,        15),
-    "sunset": (15,        "sunset"),
-}
-
-
-def _round_hour_for_sunrise(sunrise: str | None, default: int = 6) -> int:
-    """First hour that's mostly daylight (30-min rule)."""
-    if not sunrise:
-        return default
-    try:
-        t = datetime.fromisoformat(sunrise)
-        return t.hour + (1 if t.minute >= 30 else 0)
-    except (ValueError, TypeError):
-        return default
-
-
-def _round_hour_for_sunset(sunset: str | None, default: int = 19) -> int:
-    """Last hour that's mostly daylight (30-min rule)."""
-    if not sunset:
-        return default
-    try:
-        t = datetime.fromisoformat(sunset)
-        return t.hour - (1 if t.minute < 30 else 0)
-    except (ValueError, TypeError):
-        return default
+# Valid session names — used by server.py for validation.
+SESSIONS = {"dawn", "midday", "sunset"}
 
 
 def _window_range(session: str, sunrise: str | None, sunset: str | None) -> tuple[int, int]:
-    """Resolve a session label to (start_hour, end_hour) for the day."""
-    if session not in SESSIONS:
-        session = "dawn"
-    start, end = SESSIONS[session]
-    if start == "sunrise":
-        start = _round_hour_for_sunrise(sunrise)
-    if end == "sunset":
-        end = _round_hour_for_sunset(sunset)
-    return start, end
+    """Resolve session → (start_hour, end_hour) Pacific. Dawn = sunrise–11,
+    midday = 11–15, sunset = 15–sunset; sunrise/sunset round to the nearest
+    mostly-daylight hour. Unknown sessions fall back to dawn."""
+    if session == "midday":
+        return 11, 15
+    if session == "sunset":
+        try:
+            t = datetime.fromisoformat(sunset)
+            return 15, t.hour - (1 if t.minute < 30 else 0)
+        except (ValueError, TypeError):
+            return 15, 19
+    try:
+        t = datetime.fromisoformat(sunrise)
+        return t.hour + (1 if t.minute >= 30 else 0), 11
+    except (ValueError, TypeError):
+        return 6, 11
 
 
 def _score_hour(spot: dict, wave_ft: float, period_s: float,
@@ -321,10 +301,10 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
     }
 
 
-def find_best_window(marine: dict, wind: dict, spot: dict,
+def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
                      sunrise: str | None = None, sunset: str | None = None,
                      session: str = "dawn") -> dict | None:
-    """Scan each hour in the session window, return the hour with the best score."""
+    """Best hour inside the session window, scored on all five factors including tide."""
     hourly = marine.get("hourly", {})
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
@@ -339,20 +319,19 @@ def find_best_window(marine: dict, wind: dict, spot: dict,
         wave_ft = hourly["wave_height"][i] or 0
         wind_kt = wind_h["wind_speed_10m"][i] or 0
         factors = _score_hour(
-            spot,
-            wave_ft,
+            spot, wave_ft,
             hourly["swell_wave_period"][i] or 0,
             hourly["swell_wave_direction"][i] or 0,
             wind_kt,
             wind_h["wind_direction_10m"][i] or 0,
         )
+        tide_s, tide_l = score_tide(tides, spot["tide_pref"], at_hour=hr)
+        factors["tide"] = {"score": tide_s, "label": tide_l}
         score = _combine(factors)
 
         if best is None or score > best["score"]:
             best = {
-                "time": t,
-                "hour": hr,
-                "score": score,
+                "time": t, "hour": hr, "score": score,
                 "wind_label": factors["wind"]["label"],
                 "wind_kt": round(wind_kt, 1),
                 "face_height_ft": round(wave_ft * FACE_FACTOR, 1),

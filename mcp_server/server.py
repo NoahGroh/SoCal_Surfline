@@ -99,7 +99,7 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
 
     sunrise, sunset = sun.get("sunrise"), sun.get("sunset")
     summary = summarize_conditions(spot, marine, wind, tides, sunrise, sunset, session)
-    best_window = find_best_window(marine, wind, spot, sunrise, sunset, session)
+    best_window = find_best_window(marine, wind, tides, spot, sunrise, sunset, session)
 
     return {
         "spot": {
