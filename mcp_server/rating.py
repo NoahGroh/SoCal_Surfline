@@ -23,9 +23,11 @@ from datetime import datetime
 import math
 
 
-# Open-Meteo gives deep-water Hs. Spot face height = Hs * face_factor.
-# Per-spot factor lives in spots.yaml.
-DEFAULT_FACE_FACTOR = 1.0
+# We report deep-water significant wave height (Hs) directly. Translating
+# Hs → actual face height at the spot involves shoaling/refraction/bathymetry
+# physics that varies with swell direction, period, and tide. We don't try
+# to fake that with a static per-spot multiplier (those values were guesses).
+# The recipe LLM does spot-aware interpretation in prose using spot notes.
 
 
 # ---------- math helpers ----------
@@ -274,18 +276,14 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
     air_temp_f   = _mean([wind_h["temperature_2m"][i] for i in in_window], default=None)
     water_temp_f = water_temp_c * 9 / 5 + 32 if water_temp_c is not None else None
 
-    face_factor = spot.get("face_factor", DEFAULT_FACE_FACTOR)
-    face_ft = hs_ft * face_factor
     mid_hour = (start_hr + end_hr) / 2
 
     return {
         "session": session,
         "session_window": {"start_hour": start_hr, "end_hour": end_hr},
         "snapshot": {
-            "open_meteo_hs_ft": round(hs_ft, 1),       # raw deep-water Hs
-            "face_factor": face_factor,                # transparency: what we multiplied by
-            "face_height_ft": round(face_ft, 1),       # estimated face at spot
-            "face_height_label": size_label(face_ft),
+            "swell_hs_ft": round(hs_ft, 1),                # deep-water significant wave height
+            "swell_hs_label": size_label(hs_ft),           # bucket label for the Hs (NOT spot face)
             "swell_period_s": round(period, 1),
             "swell_period_label": period_label(period),
             "swell_direction_deg": round(swell_deg),
@@ -318,7 +316,6 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
     start_hr, end_hr = _window_range(session, sunrise, sunset)
     if from_hour is not None and from_hour > start_hr:
         start_hr = min(from_hour, end_hr)
-    face_factor = spot.get("face_factor", DEFAULT_FACE_FACTOR)
 
     best = None
     best_rank = None
@@ -329,7 +326,7 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
 
         wind_kt = wind_h["wind_speed_10m"][i] or 0
         wind_deg = wind_h["wind_direction_10m"][i] or 0
-        wave_ft = hourly["swell_wave_height"][i] or 0  # clean swell, not Hs+chop
+        hs_ft = hourly["swell_wave_height"][i] or 0
         wl = wind_label(wind_kt, wind_deg, spot["beach_orientation_deg"])
         rank = WIND_RANK.index(wl) if wl in WIND_RANK else len(WIND_RANK)
 
@@ -340,7 +337,7 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
                 "hour": hr,
                 "wind_label": wl,
                 "wind_kt": round(wind_kt, 1),
-                "face_height_ft": round(wave_ft * face_factor, 1),
+                "swell_hs_ft": round(hs_ft, 1),
                 "tide_label": tide_label(tides, spot["tide_pref"], at_hour=hr),
             }
     return best
