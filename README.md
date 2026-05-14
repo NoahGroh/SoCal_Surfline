@@ -72,9 +72,8 @@ call has a ~30s cold start — fine for a once-a-day surf report.
 ### 3. Install + first-run
 
 Open the install link in your own Poke. The recipe walks you through a
-6-step onboarding (spots, level/board, send time, send mode, optional
-context, confirm). Your answers land in Poke's memory. Tomorrow morning,
-the first report arrives.
+short onboarding (spots, level, daily ping time). Your answers land in
+Poke's memory. The first report arrives at the time you picked.
 
 ## What surfers see in a message
 

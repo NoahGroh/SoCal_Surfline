@@ -253,8 +253,9 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
     start_hr, end_hr = _window_range(session, sunrise, sunset)
-    if from_hour is not None and from_hour > start_hr:
-        start_hr = min(from_hour, end_hr)
+    if from_hour is not None:
+        # "now" queries → snapshot of the current hour only, not a forward mean.
+        start_hr = end_hr = from_hour
 
     in_window = []
     for i, t in enumerate(times):
@@ -314,8 +315,9 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
     start_hr, end_hr = _window_range(session, sunrise, sunset)
-    if from_hour is not None and from_hour > start_hr:
-        start_hr = min(from_hour, end_hr)
+    if from_hour is not None:
+        # "now" queries → look only at the current hour, not future hours.
+        start_hr = end_hr = from_hour
 
     best = None
     best_rank = None
