@@ -18,7 +18,12 @@ from typing import Optional
 
 from fastmcp import FastMCP
 
-from forecast import fetch_marine, fetch_wind, fetch_tides, fetch_sun, _resolve_date, current_session_pt
+from datetime import datetime
+
+from forecast import (
+    fetch_marine, fetch_wind, fetch_tides, fetch_sun,
+    _resolve_date, current_session_pt, current_hour_pt, now_pt,
+)
 from rating import summarize_conditions, find_best_window, SESSIONS
 from spots import all_regions, all_spots, get_spot, spots_in_region
 
@@ -81,7 +86,8 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
             "error": f"Unknown spot_id '{spot_id}'. Call list_spots() to see valid ids.",
         }
 
-    if session == "now":
+    requested_now = (session == "now")
+    if requested_now:
         session = current_session_pt()
     if session not in SESSIONS:
         return {
@@ -89,6 +95,8 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
         }
 
     target_date = _resolve_date(date)
+    # Only truncate to "from now on" when "now" was requested AND the date is today.
+    from_hour = current_hour_pt() if (requested_now and target_date == now_pt().date()) else None
 
     marine, wind, tides, sun = await asyncio.gather(
         fetch_marine(spot["lat"], spot["lon"], target_date),
@@ -98,8 +106,22 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
     )
 
     sunrise, sunset = sun.get("sunrise"), sun.get("sunset")
-    summary = summarize_conditions(spot, marine, wind, tides, sunrise, sunset, session)
-    best_window = find_best_window(marine, wind, tides, spot, sunrise, sunset, session)
+    summary = summarize_conditions(spot, marine, wind, tides, sunrise, sunset, session, from_hour)
+    best_window = find_best_window(marine, wind, tides, spot, sunrise, sunset, session, from_hour)
+
+    # Drop sun events that already happened so the recipe doesn't surface them.
+    sun_out = dict(sun)
+    if from_hour is not None:
+        now = now_pt()
+        for key in ("sunrise", "sunset"):
+            try:
+                t = datetime.fromisoformat(sun_out[key])
+                if t.tzinfo is None:
+                    t = t.replace(tzinfo=now.tzinfo)
+                if t < now:
+                    sun_out[key] = None
+            except (TypeError, ValueError, KeyError):
+                pass
 
     return {
         "spot": {
@@ -112,7 +134,8 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
         "date": target_date.isoformat(),
         "session": summary["session"],
         "session_window": summary["session_window"],
-        "sun": sun,
+        "current_hour_pt": from_hour,
+        "sun": sun_out,
         "conditions": summary["snapshot"],
         "tide": {
             "events": tides,

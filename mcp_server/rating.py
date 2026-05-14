@@ -237,17 +237,22 @@ WIND_RANK = [
 
 def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict],
                          sunrise: str | None = None, sunset: str | None = None,
-                         session: str = "dawn") -> dict:
+                         session: str = "dawn", from_hour: int | None = None) -> dict:
     """Build a labelled snapshot of conditions in the session window.
 
     Returns numeric values and surfer-readable labels for every factor.
     No overall verdict — the recipe LLM produces that from these inputs
     plus the user's profile.
+
+    If `from_hour` is given, truncate the window start so past hours don't
+    influence the snapshot — used for "now" queries.
     """
     hourly = marine.get("hourly", {})
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
     start_hr, end_hr = _window_range(session, sunrise, sunset)
+    if from_hour is not None and from_hour > start_hr:
+        start_hr = min(from_hour, end_hr)
 
     in_window = []
     for i, t in enumerate(times):
@@ -297,16 +302,19 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
 
 def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
                      sunrise: str | None = None, sunset: str | None = None,
-                     session: str = "dawn") -> dict | None:
+                     session: str = "dawn", from_hour: int | None = None) -> dict | None:
     """Pick the hour in the session window with the cleanest wind.
 
     Wind is the factor that changes hour-to-hour in a session window
-    (size and period barely move). Ties broken by earliest hour.
+    (size and period barely move). Ties broken by earliest hour. If
+    `from_hour` is given, only hours from then onwards are considered.
     """
     hourly = marine.get("hourly", {})
     wind_h = wind.get("hourly", {})
     times = hourly.get("time", [])
     start_hr, end_hr = _window_range(session, sunrise, sunset)
+    if from_hour is not None and from_hour > start_hr:
+        start_hr = min(from_hour, end_hr)
     face_factor = spot.get("face_factor", DEFAULT_FACE_FACTOR)
 
     best = None

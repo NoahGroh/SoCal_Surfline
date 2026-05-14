@@ -30,6 +30,16 @@ def current_session_pt() -> str:
     return "sunset"
 
 
+def current_hour_pt() -> int:
+    """Current hour-of-day in Pacific time."""
+    return datetime.now(TZ).hour
+
+
+def now_pt() -> datetime:
+    """Current datetime in Pacific time."""
+    return datetime.now(TZ)
+
+
 async def fetch_marine(lat: float, lon: float, target_date: date_cls) -> dict:
     """Hourly wave + sea-surface-temp data for the target date in PT."""
     params = {
