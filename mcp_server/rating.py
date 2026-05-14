@@ -10,9 +10,11 @@ from datetime import datetime
 import math
 
 
-# Open-Meteo returns significant wave height in deep water; surfers think
-# in face height, which runs ~1.5x larger after shoaling.
-FACE_FACTOR = 1.5
+# Open-Meteo returns significant wave height in deep water. The actual
+# face height at the spot depends on how sheltered or amplified the spot
+# is — sheltered beaches see way less, canyons way more. Each spot in
+# spots.yaml carries its own face_factor; fall back to 1.0 if absent.
+DEFAULT_FACE_FACTOR = 1.0
 
 # Geometric-mean weights for the overall rating. A near-zero factor tanks
 # the score, which is what we want (junked wind ruins a good swell, etc.).
@@ -219,7 +221,8 @@ def _window_range(session: str, sunrise: str | None, sunset: str | None) -> tupl
 def _score_hour(spot: dict, wave_ft: float, period_s: float,
                 swell_deg: float, wind_kt: float, wind_deg: float) -> dict:
     """Score the four per-hour factors (tide is added separately per day)."""
-    size_s, size_l = score_size(wave_ft * FACE_FACTOR)
+    face_factor = spot.get("face_factor", DEFAULT_FACE_FACTOR)
+    size_s, size_l = score_size(wave_ft * face_factor)
     per_s,  per_l  = score_period(period_s)
     dir_s,  dir_l  = score_direction(swell_deg, tuple(spot["ideal_swell_deg"]))
     wind_s, wind_l = score_wind(wind_kt, wind_deg, spot["beach_orientation_deg"])
@@ -273,7 +276,7 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
     factors["tide"] = {"score": tide_s, "label": tide_l}
 
     overall = _combine(factors)
-    face_height_ft = wave_ft * FACE_FACTOR
+    face_height_ft = wave_ft * spot.get("face_factor", DEFAULT_FACE_FACTOR)
 
     return {
         "session": session,
@@ -334,6 +337,6 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
                 "time": t, "hour": hr, "score": score,
                 "wind_label": factors["wind"]["label"],
                 "wind_kt": round(wind_kt, 1),
-                "face_height_ft": round(wave_ft * FACE_FACTOR, 1),
+                "face_height_ft": round(wave_ft * spot.get("face_factor", DEFAULT_FACE_FACTOR), 1),
             }
     return best
