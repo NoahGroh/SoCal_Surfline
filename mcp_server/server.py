@@ -85,7 +85,7 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
         session = current_session_pt()
     if session not in SESSIONS:
         return {
-            "error": f"Unknown session '{session}'. Valid: {list(SESSIONS.keys()) + ['now']}",
+            "error": f"Unknown session '{session}'. Valid: {sorted(SESSIONS) + ['now']}",
         }
 
     target_date = _resolve_date(date)
