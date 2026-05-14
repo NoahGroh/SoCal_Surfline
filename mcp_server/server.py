@@ -61,16 +61,16 @@ def list_spots(region: Optional[str] = None) -> dict:
 
 @mcp.tool(
     description=(
-        "Fetch a SoCal surf report for a single spot. Returns objective data — "
-        "wave size, swell period/direction, wind, tide events, water temperature, "
-        "wetsuit recommendation, a POOR/FAIR/GOOD/EPIC rating, and the best hour "
-        "inside the chosen session. "
+        "Fetch a SoCal surf report for a single spot. Returns numeric values "
+        "plus surfer-readable labels — face height + label, swell period + "
+        "label, swell direction + cardinal + label, wind speed + label, tide "
+        "label, water/air temp, wetsuit, and the cleanest-wind hour inside "
+        "the chosen session. No overall verdict — you (the agent) form "
+        "it from the labels + user context. "
         "Use spot_id from list_spots(). "
         "Optional date in YYYY-MM-DD (defaults to today in PT). "
         "Optional session: 'dawn' (sunrise–11am, default), 'midday' (11am–3pm), "
-        "'sunset' (3pm–sunset), or 'now' (auto-detect from current PT time). "
-        "For the daily dawn-patrol report use the default. For ad-hoc queries "
-        "('how is it now', 'evening session?') pick the matching session."
+        "'sunset' (3pm–sunset), or 'now' (auto-detect from current PT time)."
     )
 )
 async def get_surf_report(spot_id: str, date: Optional[str] = None,
@@ -114,7 +114,6 @@ async def get_surf_report(spot_id: str, date: Optional[str] = None,
         "session_window": summary["session_window"],
         "sun": sun,
         "conditions": summary["snapshot"],
-        "rating": summary["rating"],
         "tide": {
             "events": tides,
             "preference": spot["tide_pref"],
