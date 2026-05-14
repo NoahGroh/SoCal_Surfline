@@ -260,7 +260,10 @@ def summarize_conditions(spot: dict, marine: dict, wind: dict, tides: list[dict]
         if h is not None and start_hr <= h <= end_hr:
             in_window.append(i)
 
-    hs_ft     = _mean([hourly["wave_height"][i] for i in in_window])
+    # Use swell_wave_height (clean swell component) instead of wave_height
+    # (total Hs including locally-generated wind chop). Surfers care about the
+    # rideable swell, not the combined-with-chop number.
+    hs_ft     = _mean([hourly["swell_wave_height"][i] for i in in_window])
     period    = _mean([hourly["swell_wave_period"][i] for i in in_window])
     swell_deg = _circular_mean([hourly["swell_wave_direction"][i] for i in in_window
                                 if hourly["swell_wave_direction"][i] is not None])
@@ -326,7 +329,7 @@ def find_best_window(marine: dict, wind: dict, tides: list[dict], spot: dict,
 
         wind_kt = wind_h["wind_speed_10m"][i] or 0
         wind_deg = wind_h["wind_direction_10m"][i] or 0
-        wave_ft = hourly["wave_height"][i] or 0
+        wave_ft = hourly["swell_wave_height"][i] or 0  # clean swell, not Hs+chop
         wl = wind_label(wind_kt, wind_deg, spot["beach_orientation_deg"])
         rank = WIND_RANK.index(wl) if wl in WIND_RANK else len(WIND_RANK)
 
