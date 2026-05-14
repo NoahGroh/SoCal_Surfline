@@ -71,10 +71,10 @@ call has a ~30s cold start — fine for a once-a-day surf report.
 
 ### 3. Install + first-run
 
-Open the install link in your own Poke. The recipe sends the onboarding
-message asking for spots, level, send time, and threshold. Your answers
-land in Poke's memory under `surf_profile`. Tomorrow morning, the first
-report arrives.
+Open the install link in your own Poke. The recipe walks you through a
+6-step onboarding (spots, level/board, send time, send mode, optional
+context, confirm). Your answers land in Poke's memory. Tomorrow morning,
+the first report arrives.
 
 ## What surfers see in a message
 

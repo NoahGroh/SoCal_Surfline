@@ -91,11 +91,3 @@ El Porto  POOR
 
 🌡 66°F · springsuit / 2mm top   ☀ Sunrise 5:51am
 ```
-
----
-
-## Scenario 4 — `only_if_good` mode, nothing qualifies
-
-Recipe sends **nothing**. No "skipping today" message — the silence is
-the contract. If the user pings the recipe directly later ("how is it?"),
-it can answer with the real report.
